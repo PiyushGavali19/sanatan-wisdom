@@ -1,49 +1,154 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { v4 as uuidv4 } from "uuid";
 
-const CHAT_KEY = "chat_history";
-const MEMORY_KEY = "ai_memory";
+const STORAGE_KEY = "mysarthi_chats";
 
 const useChatbot = () => {
-  const [messages, setMessages] = useState([]);
-  const [isTyping, setIsTyping] = useState(false);
+  const [chats, setChats] = useState({});
+  const [currentChatId, setCurrentChatId] = useState(null);
+  const [isTyping, setTyping] = useState(false);
 
-  // ✅ Load chat history
-  useEffect(() => {
-    const saved = localStorage.getItem(CHAT_KEY);
-    if (saved) setMessages(JSON.parse(saved));
-  }, []);
+  // Load from localStorage
+const [loaded, setLoaded] = useState(false);
 
-  // ✅ Save chat history
-  useEffect(() => {
-    localStorage.setItem(CHAT_KEY, JSON.stringify(messages));
-  }, [messages]);
+useEffect(() => {
+  const saved = localStorage.getItem(STORAGE_KEY);
 
-  // ⏰ Timestamp
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    setChats(parsed);
+    setCurrentChatId(Object.keys(parsed)[0]);
+  } else {
+    createNewChat();
+  }
+
+  setLoaded(true);
+}, []);
+
+
+
+  // Auto save
+ useEffect(() => {
+  if (loaded) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
+  }
+}, [chats, loaded]);
+
   const getTime = () =>
     new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
 
-  // 🧠 Memory extraction
-  const askAIToRemember = async (userText) => {
+  // ✅ Create new chat
+  const createNewChat = () => {
+    const id = uuidv4();
+
+    const newChat = {
+      id,
+      title: "New Chat",
+      messages: [],
+    };
+
+    setChats((prev) => ({ ...prev, [id]: newChat }));
+    setCurrentChatId(id);
+  };
+
+  // ✅ Rename chat
+  const renameChat = (id, title) => {
+    setChats((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], title },
+    }));
+  };
+
+  // ✅ Delete a chat completely
+  const deleteChat = (id) => {
+    const copy = { ...chats };
+    delete copy[id];
+
+    setChats(copy);
+
+    if (Object.keys(copy).length > 0) {
+      setCurrentChatId(Object.keys(copy)[0]);
+    } else {
+      createNewChat();
+    }
+  };
+
+  // ✅ Clear only messages of current chat
+  const clearMessages = () => {
+    if (!currentChatId) return;
+
+    setChats((prev) => ({
+      ...prev,
+      [currentChatId]: {
+        ...prev[currentChatId],
+        messages: [],
+      },
+    }));
+  };
+
+  // ✅ CLEAR ALL CHATS (True Clear Chat)
+  const clearAllChats = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setChats({});
+    setCurrentChatId(null);
+
+    // create fresh chat after clearing
+    setTimeout(createNewChat, 100);
+  };
+
+  // clear chat UI
+  const clearChatUI = () => {
+  const id = uuidv4();
+
+  const newChat = {
+    id,
+    title: "New Chat",
+    messages: [],
+  };
+
+  setChats((prev) => ({
+    ...prev,
+    [id]: newChat,
+  }));
+
+  setCurrentChatId(id);
+};
+
+
+  // ✅ Send message
+  const sendMessage = async (text) => {
+    if (!text.trim()) return;
+
+    const userMsg = {
+      sender: "user",
+      text,
+      time: getTime(),
+    };
+
+    const updatedMsgs = [
+      ...(chats[currentChatId]?.messages || []),
+      userMsg,
+    ];
+
+    setChats((prev) => ({
+      ...prev,
+      [currentChatId]: {
+        ...prev[currentChatId],
+        messages: updatedMsgs,
+        title:
+          prev[currentChatId]?.messages?.length === 0
+            ? text.slice(0, 20)
+            : prev[currentChatId].title,
+      },
+    }));
+
+    setTyping(true);
+
     try {
-      const lower = userText.toLowerCase();
-
-      // Force name saving
-      if (lower.includes("my name is")) {
-        let saved =
-          JSON.parse(localStorage.getItem(MEMORY_KEY)) || [];
-        saved.push(userText);
-
-        localStorage.setItem(
-          MEMORY_KEY,
-          JSON.stringify(saved.slice(-20))
-        );
-        return;
-      }
-
       const res = await axios.post(
         "https://openrouter.ai/api/v1/chat/completions",
         {
@@ -52,9 +157,12 @@ const useChatbot = () => {
             {
               role: "system",
               content:
-                "Extract permanent user facts (name, preferences, goals). If none reply ONLY 'NONE'.",
+                "You are a spiritual Sanatan AI. Answer with wisdom from Bhagavad Gita, Ramayana, Mahabharata and Hindu teachings in a simple respectful way.",
             },
-            { role: "user", content: userText },
+            ...updatedMsgs.map((m) => ({
+              role: m.sender === "user" ? "user" : "assistant",
+              content: m.text,
+            })),
           ],
         },
         {
@@ -64,111 +172,39 @@ const useChatbot = () => {
         }
       );
 
-      const memory = res.data.choices[0].message.content;
-
-      if (memory && memory !== "NONE") {
-        let saved =
-          JSON.parse(localStorage.getItem(MEMORY_KEY)) || [];
-
-        saved.push(memory);
-
-        localStorage.setItem(
-          MEMORY_KEY,
-          JSON.stringify(saved.slice(-20))
-        );
-      }
-    } catch (err) {
-      console.log("Memory error", err);
-    }
-  };
-
-  // 🚀 Send message
-  const sendMessage = async (message) => {
-    if (!message.trim()) return;
-
-    askAIToRemember(message);
-
-    const userMsg = {
-      text: message,
-      sender: "user",
-      time: getTime(),
-    };
-
-    const updated = [...messages, userMsg];
-    setMessages(updated);
-
-    try {
-      setIsTyping(true); // ✅ typing start
-
-      const memories =
-        JSON.parse(localStorage.getItem(MEMORY_KEY)) || [];
-
-      const memoryPrompt =
-        memories.length > 0
-          ? {
-              role: "system",
-              content:
-                "User facts:\n" + memories.join("\n"),
-            }
-          : null;
-
-      const spiritualPrompt = {
-        role: "system",
-        content:
-          "You are Sanatan AI, a wise spiritual guide. Answer using Bhagavad Gita, Ramayana, Mahabharata and Sanatan Dharma teachings. Be calm, kind and devotional.",
-      };
-
-      const history = updated.map((m) => ({
-        role:
-          m.sender === "user"
-            ? "user"
-            : "assistant",
-        content: m.text,
-      }));
-
-      const res = await axios.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        {
-          model: "openai/gpt-4o-mini",
-          messages: [
-            spiritualPrompt,
-            memoryPrompt,
-            ...history.slice(-12),
-          ].filter(Boolean),
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_OPENROUTER_KEY}`,
-          },
-        }
-      );
-
       const botMsg = {
-        text: res.data.choices[0].message.content,
         sender: "bot",
+        text: res.data.choices[0].message.content,
         time: getTime(),
       };
 
-      setMessages([...updated, botMsg]);
-      setIsTyping(false); // ✅ typing end
-
+      setChats((prev) => ({
+        ...prev,
+        [currentChatId]: {
+          ...prev[currentChatId],
+          messages: [...updatedMsgs, botMsg],
+        },
+      }));
     } catch (err) {
       console.error(err);
-      setIsTyping(false);
     }
-  };
 
-  // 🧹 Clear chat
-  const clearAll = () => {
-    localStorage.clear();
-    setMessages([]);
+    setTyping(false);
   };
 
   return {
-    messages,
-    sendMessage,
-    clearAll,
+    chats,
+    currentChatId,
+    setCurrentChatId,
+    messages: chats[currentChatId]?.messages || [],
     isTyping,
+    sendMessage,
+    createNewChat,
+    renameChat,
+    deleteChat,
+    clearChatUI,    // clears messages and creates fresh chat
+    clearMessages,   // clears only messages
+    clearAllChats,   // clears EVERYTHING
   };
 };
 
