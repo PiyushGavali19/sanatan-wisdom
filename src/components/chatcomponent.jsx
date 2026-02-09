@@ -53,7 +53,7 @@ function ChatComponent() {
 
   try {
     const res = await axios.post(
-      `${import.meta.env.VITE_API_URL}/api/share/${currentChatId}`,
+      `${import.meta.env.VITE_API_URI}/api/share/${currentChatId}`,
       { messages }
     );  
 
