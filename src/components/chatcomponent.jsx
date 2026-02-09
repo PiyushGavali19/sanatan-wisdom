@@ -4,6 +4,9 @@ import { FiTrash2, FiPlus, FiMenu } from "react-icons/fi";
 import useChatbot from "../hooks/useChatbot";
 import useChatScroll from "../hooks/useChatScroll";
 import Markdown from "react-markdown";
+import { FiShare2 } from "react-icons/fi";
+import axios from "axios";
+
 
 function ChatComponent() {
   const [input, setInput] = React.useState("");
@@ -43,6 +46,29 @@ function ChatComponent() {
       handleSend();
     }
   };
+
+  const handleShare = async () => {
+  if (!messages.length)
+    return alert("No chat to share");
+
+  try {
+    const res = await axios.post(
+      `${import.meta.env.VITE_API_URL}/api/share/${currentChatId}`,
+      { messages }
+    );  
+
+    const shareUrl = `${window.location.origin}/share/${res.data.id}`;
+
+    await navigator.clipboard.writeText(
+      shareUrl
+    );
+
+    alert("Share link copied!");
+  } catch {
+    alert("Failed to share");
+  }
+};
+
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
@@ -135,14 +161,27 @@ function ChatComponent() {
               </p>
             </div>
           </div>
-
+          
+        <div className="flex items-center gap-4">  
           <button
             onClick={clearChatUI}
             className="text-white"
           >
             <FiTrash2 size={20} />
           </button>
+        
+
+          <button
+              onClick={handleShare}
+              className="text-white"
+              title="Share Chat"
+          >
+              <FiShare2 size={20} />
+          </button>
         </div>
+
+        </div>
+          
 
         {/* MESSAGES */}
         <div
