@@ -53,7 +53,7 @@ function ChatComponent() {
 
   try {
     const res = await axios.post(
-      `${import.meta.env.VITE_API_URI}/api/share/${currentChatId}`,
+      "https://sanatan-wisdom.onrender.com/api/share"+currentChatId,
       { messages }
     );  
     console.log(import.meta.env.VITE_API_URI);
