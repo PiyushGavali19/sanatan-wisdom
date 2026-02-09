@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import './App.css';
 
 import ChatComponent from './components/chatcomponent';
-import ShareChat from './pages/sharechat'; // make sure this file exists
+import ShareChat from './pages/ShareChat'; // make sure this file exists
 
 function App() {
   return (
