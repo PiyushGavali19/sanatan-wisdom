@@ -56,6 +56,7 @@ function ChatComponent() {
       `${import.meta.env.VITE_API_URI}/api/share/${currentChatId}`,
       { messages }
     );  
+    console.log(import.meta.env.VITE_API_URI);
 
     const shareUrl = `${window.location.origin}/share/${res.data.id}`;
 
