@@ -10,7 +10,7 @@ function ShareChat() {
 
   useEffect(() => {
     axios
-      .get(`${import.meta.env.VITE_API_URL}/api/share/${id}`)
+      .get(`${import.meta.env.VITE_API_URI}/api/share/${id}`)
       .then((res) => setMessages(res.data.messages));
   }, [id]);
 
